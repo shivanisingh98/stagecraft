@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stagecraft Task Notifier</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <img src="icons/icon32.png" alt="" class="logo" />
+      <div>
+        <h1>Stagecraft Notifier</h1>
+        <p class="subtitle">Unclaimed task monitor</p>
+      </div>
+    </header>
+
+    <!-- Status -->
+    <div class="card status-card">
+      <span class="dot" id="statusDot"></span>
+      <div>
+        <div class="status-label" id="statusLabel">Loading…</div>
+        <div class="status-sub" id="statusSub">Checking state…</div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value" id="taskCount">—</div>
+        <div class="stat-name">Available Tasks</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="lastCheck">—</div>
+        <div class="stat-name">Last Check</div>
+      </div>
+    </div>
+
+    <!-- Toggle -->
+    <div class="card toggle-row">
+      <span class="toggle-text">Enable notifications</span>
+      <label class="switch">
+        <input type="checkbox" id="enableToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- Tip banner (shown when page isn't open) -->
+    <div class="tip" id="tipBanner" style="display:none">
+      Open Stagecraft to activate monitoring
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button id="btnOpen" class="btn btn-primary">Open Stagecraft</button>
+      <button id="btnScan" class="btn btn-secondary">Scan Now</button>
+    </div>
+
+    <!-- Feedback flash -->
+    <div class="flash" id="flash" style="display:none"></div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
