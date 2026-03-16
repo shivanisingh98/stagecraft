@@ -6,24 +6,29 @@ const PLATFORM_URL =
   '?tab=tasks&tasks-tab=unclaimed&is_admin_view=false';
 
 // ─── Element refs ─────────────────────────────────────────────────────────────
-const statusDot   = document.getElementById('statusDot');
-const statusLabel = document.getElementById('statusLabel');
-const statusSub   = document.getElementById('statusSub');
-const taskCountEl = document.getElementById('taskCount');
-const lastCheckEl = document.getElementById('lastCheck');
-const enableToggle = document.getElementById('enableToggle');
-const tipBanner   = document.getElementById('tipBanner');
-const btnOpen     = document.getElementById('btnOpen');
-const btnScan     = document.getElementById('btnScan');
-const flash       = document.getElementById('flash');
+const statusDot      = document.getElementById('statusDot');
+const statusLabel    = document.getElementById('statusLabel');
+const statusSub      = document.getElementById('statusSub');
+const taskCountEl    = document.getElementById('taskCount');
+const lastCheckEl    = document.getElementById('lastCheck');
+const enableToggle   = document.getElementById('enableToggle');
+const autoClaimToggle = document.getElementById('autoClaimToggle');
+const claimBadge     = document.getElementById('claimBadge');
+const claimResult    = document.getElementById('claimResult');
+const claimResultIcon = document.getElementById('claimResultIcon');
+const claimResultText = document.getElementById('claimResultText');
+const tipBanner      = document.getElementById('tipBanner');
+const btnOpen        = document.getElementById('btnOpen');
+const btnScan        = document.getElementById('btnScan');
+const flash          = document.getElementById('flash');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function relativeTime(ts) {
   if (!ts) return 'Never';
   const diff = Date.now() - ts;
-  if (diff < 5_000)    return 'Just now';
-  if (diff < 60_000)   return `${Math.floor(diff / 1_000)}s ago`;
+  if (diff < 5_000)     return 'Just now';
+  if (diff < 60_000)    return `${Math.floor(diff / 1_000)}s ago`;
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   return `${Math.floor(diff / 3_600_000)}h ago`;
 }
@@ -45,25 +50,50 @@ async function refreshUI() {
   );
   if (!data) return;
 
-  const { enabled, taskCount, lastCheckTime } = data;
+  const { enabled, autoClaim, taskCount, lastCheckTime, lastClaimResult: lcr } = data;
 
+  // Monitoring toggle
   enableToggle.checked = enabled !== false;
 
   if (enabled !== false) {
     statusDot.className = 'dot active pulse';
-    statusLabel.textContent = 'Monitoring active';
-    statusSub.textContent = 'Watching for unclaimed tasks';
+    statusLabel.textContent = autoClaim ? 'Auto-claim active' : 'Monitoring active';
+    statusSub.textContent = autoClaim
+      ? 'Will claim the top task automatically'
+      : 'Watching for unclaimed tasks';
   } else {
     statusDot.className = 'dot inactive';
     statusLabel.textContent = 'Monitoring paused';
     statusSub.textContent = 'Enable to receive notifications';
   }
 
+  // Auto-claim toggle
+  autoClaimToggle.checked = autoClaim !== false;
+  claimBadge.textContent = autoClaim !== false ? 'ON' : 'OFF';
+  claimBadge.className = `toggle-badge ${autoClaim !== false ? 'on' : 'off'}`;
+
+  // Stats
   taskCountEl.textContent = taskCount != null ? taskCount : '—';
   lastCheckEl.textContent = relativeTime(lastCheckTime);
+
+  // Last claim result
+  if (lcr) {
+    claimResult.style.display = 'flex';
+    if (lcr.success) {
+      claimResult.className = 'claim-result ok';
+      claimResultIcon.textContent = '✓';
+      claimResultText.textContent = lcr.taskTitle
+        ? `Claimed: "${lcr.taskTitle.substring(0, 40)}"`
+        : 'Last task claimed successfully';
+    } else {
+      claimResult.className = 'claim-result fail';
+      claimResultIcon.textContent = '⚠';
+      claimResultText.textContent = `Claim failed: ${lcr.reason || 'unknown error'}`;
+    }
+  }
 }
 
-// Check if a Stagecraft tab is open; show tip if not
+// Tip: show if no Stagecraft tab is open
 chrome.tabs.query({ url: 'https://feather.openai.com/*' }, (tabs) => {
   tipBanner.style.display = tabs.length === 0 ? 'block' : 'none';
 });
@@ -72,6 +102,11 @@ chrome.tabs.query({ url: 'https://feather.openai.com/*' }, (tabs) => {
 
 enableToggle.addEventListener('change', () => {
   chrome.runtime.sendMessage({ type: 'TOGGLE_ENABLED', enabled: enableToggle.checked });
+  refreshUI();
+});
+
+autoClaimToggle.addEventListener('change', () => {
+  chrome.runtime.sendMessage({ type: 'TOGGLE_AUTO_CLAIM', autoClaim: autoClaimToggle.checked });
   refreshUI();
 });
 
@@ -112,4 +147,4 @@ btnScan.addEventListener('click', async () => {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 refreshUI();
-setInterval(refreshUI, 5000); // keep stats live while popup is open
+setInterval(refreshUI, 5000);

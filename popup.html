@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stagecraft Task Notifier</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
@@ -39,13 +38,30 @@
       </div>
     </div>
 
-    <!-- Toggle -->
+    <!-- Toggles -->
     <div class="card toggle-row">
       <span class="toggle-text">Enable notifications</span>
       <label class="switch">
         <input type="checkbox" id="enableToggle" />
         <span class="slider"></span>
       </label>
+    </div>
+
+    <div class="card toggle-row auto-claim-row">
+      <div class="toggle-info">
+        <span class="toggle-text">Auto-claim top task</span>
+        <span class="toggle-badge" id="claimBadge"></span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autoClaimToggle" />
+        <span class="slider slider-blue"></span>
+      </label>
+    </div>
+
+    <!-- Last claim result -->
+    <div class="claim-result" id="claimResult" style="display:none">
+      <span id="claimResultIcon"></span>
+      <span id="claimResultText"></span>
     </div>
 
     <!-- Tip banner (shown when page isn't open) -->
