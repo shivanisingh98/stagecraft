@@ -117,6 +117,10 @@ function scanDOM() {
     return { id, title };
   });
 
+  // Always tell background a scan happened so lastCheckTime stays current,
+  // even when the task list hasn't changed.
+  chrome.runtime.sendMessage({ type: 'SCAN_HEARTBEAT', taskCount: tasks.length });
+
   sendTasks(tasks);
 }
 

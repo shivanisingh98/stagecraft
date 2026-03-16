@@ -56,6 +56,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'TOGGLE_AUTO_CLAIM':
       chrome.storage.local.set({ autoClaim: message.autoClaim });
       break;
+
+    case 'SCAN_HEARTBEAT':
+      chrome.storage.local.set({
+        lastCheckTime: Date.now(),
+        ...(message.taskCount != null && { taskCount: message.taskCount }),
+      });
+      break;
   }
 });
 
