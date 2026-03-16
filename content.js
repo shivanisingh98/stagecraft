@@ -154,7 +154,7 @@ async function claimTopTask() {
   // ── Step 2: wait for the Claim button to appear in the top bar ────────────
   let claimBtn;
   try {
-    claimBtn = await waitForElement(findClaimButton, 7000);
+    claimBtn = await waitForElement(findClaimButton, 12000);
   } catch {
     return { success: false, reason: 'Claim button did not appear after opening task' };
   }
@@ -167,9 +167,27 @@ async function claimTopTask() {
   return { success: true, taskTitle };
 }
 
-/** Finds the first clickable task card in the unclaimed list. */
+/**
+ * Finds the first task link on the Available Work / unclaimed tab.
+ * The platform renders tasks as green-coloured anchor links, so we
+ * prioritise those before falling back to generic card selectors.
+ */
 function findFirstTaskCard() {
-  // Ordered from most specific to most generic
+  // ── Strategy 1: green-coloured <a> links (the task title links) ────────────
+  const greenLinks = Array.from(document.querySelectorAll('a'))
+    .filter((a) => {
+      if (!a.offsetParent) return false;           // must be visible
+      if (!a.textContent.trim()) return false;
+      const color = window.getComputedStyle(a).color;
+      const m = color.match(/\d+/g);
+      if (!m) return false;
+      const [r, g, b] = m.map(Number);
+      // Green-dominant text colour
+      return g > r + 20 && g > b + 20 && g > 80;
+    });
+  if (greenLinks.length > 0) return greenLinks[0];
+
+  // ── Strategy 2: data-attribute and class-based selectors ──────────────────
   const selectors = [
     '[data-task-id]',
     '[data-testid*="task-row"]', '[data-testid*="task-item"]', '[data-testid*="task-card"]',
@@ -199,44 +217,63 @@ function extractCardTitle(el) {
 }
 
 /**
- * Finds the green "Claim" button in the top bar.
- * Tries three strategies: text match → top-bar green button → any green button.
+ * Finds the Claim button in the top bar after a task is opened.
+ *
+ * Strategy order:
+ *  1. Any visible button/link whose text contains "claim" (case-insensitive)
+ *  2. Any visible button/link whose class or aria-label contains "claim"
+ *  3. Green-coloured button anywhere in the top 250px of the viewport
+ *  4. Green-coloured button anywhere on the page (widest fallback)
  */
 function findClaimButton() {
   const allBtns = Array.from(
-    document.querySelectorAll('button, [role="button"], a[class*="btn"], a[class*="button"]')
-  ).filter((el) => !el.disabled && el.offsetParent !== null); // visible + enabled
+    document.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]')
+  ).filter((el) => !el.disabled && el.offsetParent !== null);
 
-  // Strategy 1: button whose visible text is exactly "Claim" or "Claim Task"
-  const byText = allBtns.find((btn) => {
-    const t = btn.textContent.trim().toLowerCase();
-    return t === 'claim' || t === 'claim task' || t === 'claim now';
-  });
-  if (byText) return byText;
+  // Strategy 1: text contains "claim"
+  const byText = allBtns.find((btn) =>
+    btn.textContent.trim().toLowerCase().includes('claim')
+  );
+  if (byText) { console.debug('[Stagecraft Notifier] Claim btn via text:', byText); return byText; }
 
-  // Strategy 2: button/link whose class or aria-label contains "claim"
+  // Strategy 2: class or aria-label contains "claim"
   const byAttr = allBtns.find((btn) => {
-    const cls = (btn.className || '').toLowerCase();
+    const cls   = (btn.className || '').toLowerCase();
     const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-    return cls.includes('claim') || label.includes('claim');
+    const href  = (btn.getAttribute('href') || '').toLowerCase();
+    return cls.includes('claim') || label.includes('claim') || href.includes('claim');
   });
-  if (byAttr) return byAttr;
+  if (byAttr) { console.debug('[Stagecraft Notifier] Claim btn via attr:', byAttr); return byAttr; }
 
-  // Strategy 3: green button in the top portion of viewport (top bar)
-  const topGreen = allBtns
-    .filter((btn) => {
-      const rect = btn.getBoundingClientRect();
-      if (rect.top > 160 || rect.width < 20) return false; // must be in top bar
-      const bg = window.getComputedStyle(btn).backgroundColor;
-      const m = bg.match(/\d+/g);
-      if (!m) return false;
+  // Helper: is this element green?
+  function isGreen(el) {
+    const style = window.getComputedStyle(el);
+    for (const prop of ['backgroundColor', 'background', 'color', 'borderColor']) {
+      const val = style[prop];
+      const m = val && val.match(/\d+/g);
+      if (!m) continue;
       const [r, g, b] = m.map(Number);
-      // Green-dominant: g > r, g > b, reasonably bright
-      return g > r + 20 && g > b + 20 && g > 80;
-    });
-  if (topGreen.length > 0) return topGreen[0];
+      if (g > r + 20 && g > b + 20 && g > 80) return true;
+    }
+    return false;
+  }
 
-  return null; // not found yet
+  // Strategy 3: green button in the top bar (top 250px)
+  const topGreen = allBtns.filter((btn) => {
+    const rect = btn.getBoundingClientRect();
+    return rect.top < 250 && rect.width > 30 && isGreen(btn);
+  });
+  if (topGreen.length > 0) { console.debug('[Stagecraft Notifier] Claim btn via top-green:', topGreen[0]); return topGreen[0]; }
+
+  // Strategy 4: any green button on the page
+  const anyGreen = allBtns.find((btn) => btn.getBoundingClientRect().width > 30 && isGreen(btn));
+  if (anyGreen) { console.debug('[Stagecraft Notifier] Claim btn via any-green:', anyGreen); return anyGreen; }
+
+  // Log all visible buttons to help diagnose when nothing matches
+  console.debug('[Stagecraft Notifier] No claim button found. Visible buttons:',
+    allBtns.map((b) => ({ text: b.textContent.trim().substring(0, 40), cls: b.className }))
+  );
+  return null;
 }
 
 /**
