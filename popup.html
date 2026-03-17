@@ -2,80 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Stagecraft Task Notifier</title>
+  <title>Open Reopened Task</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div class="container">
 
-    <!-- Header -->
     <header>
       <img src="icons/icon32.png" alt="" class="logo" />
       <div>
-        <h1>Stagecraft Notifier</h1>
-        <p class="subtitle">Unclaimed task monitor</p>
+        <h1>Stagecraft</h1>
+        <p class="subtitle">Open first Reopened task</p>
       </div>
     </header>
 
-    <!-- Status -->
     <div class="card status-card">
       <span class="dot" id="statusDot"></span>
       <div>
-        <div class="status-label" id="statusLabel">Loading…</div>
-        <div class="status-sub" id="statusSub">Checking state…</div>
+        <div class="status-label" id="statusLabel">Ready</div>
+        <div class="status-sub" id="statusSub">Click below to open the first Reopened task</div>
       </div>
     </div>
 
-    <!-- Stats row -->
-    <div class="stats">
-      <div class="stat-box">
-        <div class="stat-value" id="taskCount">—</div>
-        <div class="stat-name">Available Tasks</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value" id="lastCheck">—</div>
-        <div class="stat-name">Last Check</div>
-      </div>
-    </div>
-
-    <!-- Toggles -->
-    <div class="card toggle-row">
-      <span class="toggle-text">Enable notifications</span>
-      <label class="switch">
-        <input type="checkbox" id="enableToggle" />
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="card toggle-row auto-claim-row">
-      <div class="toggle-info">
-        <span class="toggle-text">Auto-claim top task</span>
-        <span class="toggle-badge" id="claimBadge"></span>
-      </div>
-      <label class="switch">
-        <input type="checkbox" id="autoClaimToggle" />
-        <span class="slider slider-blue"></span>
-      </label>
-    </div>
-
-    <!-- Last claim result -->
-    <div class="claim-result" id="claimResult" style="display:none">
-      <span id="claimResultIcon"></span>
-      <span id="claimResultText"></span>
-    </div>
-
-    <!-- Tip banner (shown when page isn't open) -->
     <div class="tip" id="tipBanner" style="display:none">
-      Open Stagecraft to activate monitoring
+      Stagecraft is not open — it will be opened automatically
     </div>
 
-    <!-- Actions -->
-    <div class="actions">
-      <button id="btnOpen" class="btn btn-primary">Open Stagecraft</button>
-      <button id="btnScan" class="btn btn-secondary">Scan Now</button>
+    <div class="claim-result" id="result" style="display:none">
+      <span id="resultIcon"></span>
+      <span id="resultText"></span>
     </div>
 
-    <!-- Feedback flash -->
+    <div class="actions" style="grid-template-columns:1fr">
+      <button id="btnGo" class="btn btn-primary">Open Reopened Task</button>
+    </div>
+
     <div class="flash" id="flash" style="display:none"></div>
 
   </div>

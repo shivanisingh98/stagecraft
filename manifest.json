@@ -1,13 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Stagecraft Task Notifier",
+  "name": "Stagecraft – Open Reopened Task",
   "version": "1.0.0",
-  "description": "Get notified instantly when new unclaimed tasks appear on Stagecraft (feather.openai.com)",
+  "description": "One click to open the first Reopened task in the Available Work tab on feather.openai.com",
   "permissions": [
-    "notifications",
     "storage",
-    "tabs",
-    "alarms"
+    "tabs"
   ],
   "host_permissions": [
     "https://feather.openai.com/*"
@@ -22,15 +20,9 @@
       "run_at": "document_idle"
     }
   ],
-  "web_accessible_resources": [
-    {
-      "resources": ["inject.js"],
-      "matches": ["https://feather.openai.com/*"]
-    }
-  ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Stagecraft Task Notifier",
+    "default_title": "Open first Reopened task",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
