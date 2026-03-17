@@ -1,9 +1,9 @@
 // background.js — Service Worker
 'use strict';
 
-const AVAILABLE_WORK_URL =
+const INCOMPLETE_TAB_URL =
   'https://feather.openai.com/campaigns/2072efd0-e22f-482e-bc2d-01617ce23d23' +
-  '?tab=tasks&tasks-tab=unclaimed&is_admin_view=false';
+  '?tab=tasks&tasks-tab=incomplete&is_admin_view=false';
 
 // ─── Message handler ──────────────────────────────────────────────────────────
 
@@ -50,20 +50,19 @@ async function openReopenedTask() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns an existing Stagecraft tab on the Available Work URL,
+ * Returns an existing Stagecraft tab navigated to the Incomplete tab URL,
  * or opens a new one if none exists.
  */
 async function ensureAvailableWorkTab() {
   const tabs = await chrome.tabs.query({ url: 'https://feather.openai.com/*' });
 
   if (tabs.length > 0) {
-    // Navigate the existing tab to the Available Work URL and focus it
-    await chrome.tabs.update(tabs[0].id, { active: true, url: AVAILABLE_WORK_URL });
+    await chrome.tabs.update(tabs[0].id, { active: true, url: INCOMPLETE_TAB_URL });
     await chrome.windows.update(tabs[0].windowId, { focused: true });
     return tabs[0];
   }
 
-  return chrome.tabs.create({ url: AVAILABLE_WORK_URL });
+  return chrome.tabs.create({ url: INCOMPLETE_TAB_URL });
 }
 
 /**

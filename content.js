@@ -1,14 +1,14 @@
 // content.js — content script for "Open first Reopened task" extension
 'use strict';
 
-const AVAILABLE_WORK_URL =
+const INCOMPLETE_TAB_URL =
   'https://feather.openai.com/campaigns/2072efd0-e22f-482e-bc2d-01617ce23d23' +
-  '?tab=tasks&tasks-tab=unclaimed&is_admin_view=false';
+  '?tab=tasks&tasks-tab=incomplete&is_admin_view=false';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function isOnAvailableWorkTab() {
-  return location.href.includes('tasks-tab=unclaimed');
+function isOnIncompleteTab() {
+  return location.href.includes('tasks-tab=incomplete');
 }
 
 // ─── Message handler ──────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 //     not yet ready to receive a message ─────────────────────────────────────
 
 (async function checkPendingOnStartup() {
-  if (!isOnAvailableWorkTab()) return;
+  if (!isOnIncompleteTab()) return;
   const { pendingFindReopened } = await new Promise((res) =>
     chrome.storage.local.get('pendingFindReopened', res)
   );
@@ -37,8 +37,8 @@ chrome.runtime.onMessage.addListener((msg) => {
 // ─── Core: find the first Reopened task and click it ─────────────────────────
 
 async function findAndOpenReopenedTask() {
-  if (!isOnAvailableWorkTab()) {
-    window.location.href = AVAILABLE_WORK_URL;
+  if (!isOnIncompleteTab()) {
+    window.location.href = INCOMPLETE_TAB_URL;
     return;
   }
 
