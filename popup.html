@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Open Reopened Task</title>
+  <title>Stagecraft Task Claimer</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
       <img src="icons/icon32.png" alt="" class="logo" />
       <div>
         <h1>Stagecraft</h1>
-        <p class="subtitle">Open first Reopened task in Incomplete</p>
+        <p class="subtitle">Claim first available task</p>
       </div>
     </header>
 
@@ -20,12 +20,12 @@
       <span class="dot" id="statusDot"></span>
       <div>
         <div class="status-label" id="statusLabel">Ready</div>
-        <div class="status-sub" id="statusSub">Click below to open the first Reopened task in Incomplete</div>
+        <div class="status-sub" id="statusSub">Click below to claim the first available task</div>
       </div>
     </div>
 
     <div class="tip" id="tipBanner" style="display:none">
-      Stagecraft is not open — the Incomplete tab will be opened automatically
+      Stagecraft is not open — the Available Work tab will be opened automatically
     </div>
 
     <div class="claim-result" id="result" style="display:none">
@@ -34,7 +34,7 @@
     </div>
 
     <div class="actions" style="grid-template-columns:1fr">
-      <button id="btnGo" class="btn btn-primary">Open Reopened Task</button>
+      <button id="btnGo" class="btn btn-primary">Claim Available Task</button>
     </div>
 
     <div class="flash" id="flash" style="display:none"></div>

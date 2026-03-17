@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Stagecraft – Open Reopened Task",
-  "version": "1.0.0",
-  "description": "One click to open the first Reopened task in the Available Work tab on feather.openai.com",
+  "name": "Stagecraft – Task Claimer",
+  "version": "2.0.0",
+  "description": "One click to claim the first available task in the Available Work tab on feather.openai.com",
   "permissions": [
     "storage",
     "tabs"
@@ -22,7 +22,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Open first Reopened task",
+    "default_title": "Claim first available task",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

@@ -1,81 +1,72 @@
 // background.js — Service Worker
 'use strict';
 
-const TARGET_URL =
+const AVAILABLE_WORK_URL =
   'https://feather.openai.com/campaigns/2072efd0-e22f-482e-bc2d-01617ce23d23' +
-  '?tab=tasks&tasks-tab=incomplete&is_admin_view=false';
+  '?tab=tasks&tasks-tab=unclaimed&is_admin_view=false';
 
 // ─── Message handler ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === 'OPEN_REOPENED_TASK') {
-    openReopenedTask().catch(console.error);
+  if (message.type === 'CLAIM_AVAILABLE_TASK') {
+    claimAvailableTask().catch(console.error);
   }
 
-  if (message.type === 'REOPENED_RESULT') {
-    chrome.storage.local.set({
-      lastReopenedResult: { success: message.success, message: message.message },
-    });
+  if (message.type === 'TASK_CLAIM_RESULT') {
+    chrome.storage.local.set({ lastClaimResult: { success: message.success, message: message.message } });
     chrome.runtime.sendMessage(message).catch(() => {});
   }
 });
 
 // ─── Main flow ────────────────────────────────────────────────────────────────
 
-async function openReopenedTask() {
-  const tabId = await navigateToTarget();
+async function claimAvailableTask() {
+  const tabId = await navigateToAvailableWork();
 
-  // Wait for the NEW page (our target URL) to finish loading.
-  // We pass the expected URL substring so we don't accidentally resolve
-  // on the old page's 'complete' event before the navigation starts.
-  await waitForTabComplete(tabId, 'tasks-tab=incomplete');
+  // Wait for the Available Work tab's URL to finish loading (not the old page)
+  await waitForTabComplete(tabId, 'tasks-tab=unclaimed');
 
-  // Extra delay for React/Next.js to hydrate the task list
+  // Give React/Next.js time to render the task list
   await sleep(2000);
 
-  // Send the message; retry once if the content script isn't ready yet
+  // Tell the content script to find and click the first available task
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await chrome.tabs.sendMessage(tabId, { type: 'FIND_REOPENED_TASK' });
-      return; // success
+      await chrome.tabs.sendMessage(tabId, { type: 'FIND_AND_CLAIM_TASK' });
+      return;
     } catch {
-      // Content script not ready yet — wait and retry
       await sleep(1000);
     }
   }
 
-  // Last resort: store a pending flag the content script will read on startup
-  await chrome.storage.local.set({ pendingFindReopened: true });
+  // Fallback: set pending flag for the content script to pick up on startup
+  await chrome.storage.local.set({ pendingClaimTask: true });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Opens or navigates to the target URL.
- * Returns the tab ID of the tab being used.
- */
-async function navigateToTarget() {
+async function navigateToAvailableWork() {
   const tabs = await chrome.tabs.query({ url: 'https://feather.openai.com/*' });
 
   if (tabs.length > 0) {
-    await chrome.tabs.update(tabs[0].id, { active: true, url: TARGET_URL });
+    await chrome.tabs.update(tabs[0].id, { active: true, url: AVAILABLE_WORK_URL });
     await chrome.windows.update(tabs[0].windowId, { focused: true });
     return tabs[0].id;
   }
 
-  const newTab = await chrome.tabs.create({ url: TARGET_URL });
+  const newTab = await chrome.tabs.create({ url: AVAILABLE_WORK_URL });
   return newTab.id;
 }
 
 /**
- * Waits until the tab's URL contains `urlSubstring` AND status is 'complete'.
- * This prevents resolving on the old page's status before navigation starts.
+ * Waits until the tab URL contains `urlSubstring` AND status is 'complete'.
+ * Resolves on timeout anyway so the caller can still try messaging.
  */
 function waitForTabComplete(tabId, urlSubstring, timeoutMs = 25_000) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const timer = setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(listener);
-      resolve(); // resolve anyway so we still try to message the content script
+      resolve();
     }, timeoutMs);
 
     function listener(id, info, tab) {
