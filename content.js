@@ -129,42 +129,93 @@ function scanDOM() {
 /**
  * Main entry point called by background when new tasks are detected
  * and autoClaim is enabled.
+ *
+ * Flow:
+ *  1. On the Available Work tab: find the first green task link, store a
+ *     pendingClaim flag in storage, then navigate to the task's URL.
+ *  2. On the task detail page: the startup handler reads the pendingClaim
+ *     flag and clicks the Claim button in the top bar.
+ *
+ * Using chrome.storage for the handoff means the claim survives the full-page
+ * navigation that happens when following an <a> link.
  */
 async function claimTopTask() {
-  // If not on the unclaimed tab, navigate there first then bail —
-  // the content script will re-run after navigation and background will
-  // retry via the CLAIM_TOP_TASK message.
   if (!isOnUnclaimedTab()) {
     window.location.href = PLATFORM_URL;
     return { success: false, reason: 'Navigating to unclaimed tasks page' };
   }
 
-  // Small wait to ensure the task list has rendered
-  await sleep(800);
+  // Wait for the task list to render
+  await sleep(1000);
 
-  // ── Step 1: find & click the top task card ─────────────────────────────────
-  const taskCard = findFirstTaskCard();
-  if (!taskCard) {
-    return { success: false, reason: 'No task cards found in the list' };
+  const taskLink = findFirstTaskCard();
+  if (!taskLink) {
+    return { success: false, reason: 'No task links found in Available Work tab' };
   }
 
-  const taskTitle = extractCardTitle(taskCard);
-  taskCard.click();
+  const taskTitle = extractCardTitle(taskLink);
+  const href = taskLink.tagName === 'A' ? taskLink.href : null;
 
-  // ── Step 2: wait for the Claim button to appear in the top bar ────────────
+  if (href) {
+    // Store the pending-claim flag BEFORE navigating so the next content
+    // script instance (on the task detail page) picks it up and clicks Claim.
+    await new Promise((res) =>
+      chrome.storage.local.set({ pendingClaim: true, pendingClaimTitle: taskTitle }, res)
+    );
+    window.location.href = href;
+    // Content script is destroyed here — the task detail page continues the flow.
+    return { success: false, reason: 'Navigating to task detail page' };
+  }
+
+  // Fallback for non-<a> elements (e.g. div cards in a SPA with no href):
+  // click in place and wait for the Claim button to appear in the same context.
+  taskLink.click();
   let claimBtn;
   try {
     claimBtn = await waitForElement(findClaimButton, 12000);
   } catch {
     return { success: false, reason: 'Claim button did not appear after opening task' };
   }
-
-  // Brief pause so the page is stable before clicking
-  await sleep(300);
-
+  await sleep(400);
   claimBtn.click();
-
   return { success: true, taskTitle };
+}
+
+/**
+ * Called on every page load.  If a pendingClaim was stored by the previous
+ * page (the Available Work tab), wait for the Claim button and click it.
+ */
+async function checkPendingClaim() {
+  const { pendingClaim, pendingClaimTitle } = await new Promise((res) =>
+    chrome.storage.local.get(['pendingClaim', 'pendingClaimTitle'], res)
+  );
+  if (!pendingClaim) return;
+
+  // Clear immediately to prevent double-claim if the page reloads again
+  await new Promise((res) =>
+    chrome.storage.local.set({ pendingClaim: false }, res)
+  );
+
+  console.debug('[Stagecraft Notifier] Pending claim detected — waiting for Claim button…');
+
+  try {
+    const claimBtn = await waitForElement(findClaimButton, 12000);
+    await sleep(400);
+    claimBtn.click();
+    console.debug('[Stagecraft Notifier] Claim button clicked:', claimBtn);
+    chrome.runtime.sendMessage({
+      type: 'CLAIM_RESULT',
+      success: true,
+      taskTitle: pendingClaimTitle || '',
+    });
+  } catch {
+    console.debug('[Stagecraft Notifier] Claim button not found on task page');
+    chrome.runtime.sendMessage({
+      type: 'CLAIM_RESULT',
+      success: false,
+      reason: 'Claim button not found on task page',
+    });
+  }
 }
 
 /**
@@ -345,6 +396,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-// ─── Initial scan ─────────────────────────────────────────────────────────────
+// ─── Initial scan / pending-claim check ──────────────────────────────────────
 
-if (isOnUnclaimedTab()) setTimeout(scanDOM, 1500);
+if (isOnUnclaimedTab()) {
+  setTimeout(scanDOM, 1500);
+} else {
+  // May be landing on a task detail page after clicking a green task link.
+  // Give the page a moment to render before looking for the Claim button.
+  setTimeout(checkPendingClaim, 1500);
+}
