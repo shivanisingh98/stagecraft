@@ -1,83 +1,86 @@
 // background.js — Service Worker
 'use strict';
 
-const INCOMPLETE_TAB_URL =
+const TARGET_URL =
   'https://feather.openai.com/campaigns/2072efd0-e22f-482e-bc2d-01617ce23d23' +
   '?tab=tasks&tasks-tab=incomplete&is_admin_view=false';
 
 // ─── Message handler ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'OPEN_REOPENED_TASK') {
-    openReopenedTask();
+    openReopenedTask().catch(console.error);
   }
 
   if (message.type === 'REOPENED_RESULT') {
-    // Save result so popup can display it even after re-opening
     chrome.storage.local.set({
       lastReopenedResult: { success: message.success, message: message.message },
     });
-    // Forward to popup if it's still open
     chrome.runtime.sendMessage(message).catch(() => {});
   }
 });
 
 // ─── Main flow ────────────────────────────────────────────────────────────────
 
-/**
- * 1. Ensures a Stagecraft tab is open on the Available Work URL.
- * 2. Waits for that tab to finish loading.
- * 3. Sends FIND_REOPENED_TASK to the content script.
- */
 async function openReopenedTask() {
-  const tab = await ensureAvailableWorkTab();
+  const tabId = await navigateToTarget();
 
-  // Wait for the tab to finish loading before messaging the content script.
-  await waitForTabLoad(tab.id);
+  // Wait for the NEW page (our target URL) to finish loading.
+  // We pass the expected URL substring so we don't accidentally resolve
+  // on the old page's 'complete' event before the navigation starts.
+  await waitForTabComplete(tabId, 'tasks-tab=incomplete');
 
-  // Give React/Next.js a moment to hydrate the task list
-  await sleep(1500);
+  // Extra delay for React/Next.js to hydrate the task list
+  await sleep(2000);
 
-  try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'FIND_REOPENED_TASK' });
-  } catch {
-    // Content script may not have injected yet (e.g. on a fresh tab).
-    // Store a pending flag so the content script picks it up on startup.
-    await chrome.storage.local.set({ pendingFindReopened: true });
+  // Send the message; retry once if the content script isn't ready yet
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'FIND_REOPENED_TASK' });
+      return; // success
+    } catch {
+      // Content script not ready yet — wait and retry
+      await sleep(1000);
+    }
   }
+
+  // Last resort: store a pending flag the content script will read on startup
+  await chrome.storage.local.set({ pendingFindReopened: true });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns an existing Stagecraft tab navigated to the Incomplete tab URL,
- * or opens a new one if none exists.
+ * Opens or navigates to the target URL.
+ * Returns the tab ID of the tab being used.
  */
-async function ensureAvailableWorkTab() {
+async function navigateToTarget() {
   const tabs = await chrome.tabs.query({ url: 'https://feather.openai.com/*' });
 
   if (tabs.length > 0) {
-    await chrome.tabs.update(tabs[0].id, { active: true, url: INCOMPLETE_TAB_URL });
+    await chrome.tabs.update(tabs[0].id, { active: true, url: TARGET_URL });
     await chrome.windows.update(tabs[0].windowId, { focused: true });
-    return tabs[0];
+    return tabs[0].id;
   }
 
-  return chrome.tabs.create({ url: INCOMPLETE_TAB_URL });
+  const newTab = await chrome.tabs.create({ url: TARGET_URL });
+  return newTab.id;
 }
 
 /**
- * Resolves when the given tab reaches 'complete' status.
- * Times out after 20 s to avoid hanging indefinitely.
+ * Waits until the tab's URL contains `urlSubstring` AND status is 'complete'.
+ * This prevents resolving on the old page's status before navigation starts.
  */
-function waitForTabLoad(tabId, timeoutMs = 20_000) {
+function waitForTabComplete(tabId, urlSubstring, timeoutMs = 25_000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(listener);
-      reject(new Error('Tab load timeout'));
+      resolve(); // resolve anyway so we still try to message the content script
     }, timeoutMs);
 
-    function listener(id, info) {
-      if (id === tabId && info.status === 'complete') {
+    function listener(id, info, tab) {
+      if (id !== tabId) return;
+      if (info.status === 'complete' && tab.url && tab.url.includes(urlSubstring)) {
         clearTimeout(timer);
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();
@@ -85,15 +88,6 @@ function waitForTabLoad(tabId, timeoutMs = 20_000) {
     }
 
     chrome.tabs.onUpdated.addListener(listener);
-
-    // Also check immediately in case the tab is already loaded
-    chrome.tabs.get(tabId, (tab) => {
-      if (tab && tab.status === 'complete') {
-        clearTimeout(timer);
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    });
   });
 }
 
