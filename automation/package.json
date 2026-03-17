@@ -1,0 +1,13 @@
+{
+  "name": "stagecraft-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation for Stagecraft – opens the first Reopened task in Available Work",
+  "main": "open-reopened-task.js",
+  "scripts": {
+    "start": "node open-reopened-task.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  }
+}
